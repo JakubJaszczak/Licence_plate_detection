@@ -1,0 +1,6 @@
+# Training, validation and test images
+images/**
+
+# Pycharm files
+.venv/**
+.idea/**
