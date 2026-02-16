@@ -1,5 +1,7 @@
 import os
 from pathlib import Path
+import argparse
+import math
 
 import torch
 from PIL import Image
@@ -7,12 +9,14 @@ from datasets import Dataset, load_from_disk
 from transformers import DetrImageProcessor, DetrForObjectDetection, Trainer, TrainingArguments
 
 PROJECT_ROOT_DIR = Path(__file__).parent.parent
-IMAGE_DIR = PROJECT_ROOT_DIR.joinpath("datasets", "licence_plate", "images", "train")
-LABEL_DIR = PROJECT_ROOT_DIR.joinpath("datasets", "licence_plate", "labels", "train")
+print(PROJECT_ROOT_DIR)
+IMAGE_DIR = Path("/home/karol/Downloads/large-license-plate-dataset/images/train")
+LABEL_DIR = Path("/home/karol/Downloads/large-license-plate-dataset/labels/train")
 MODEL_NAME = "facebook/detr-resnet-50"
 NUM_CLASSES = 1
 OUTPUT_DIR = "./detr_yolo"
-BATCH_SIZE = 4
+BATCH_SIZE = 1
+GRAD_ACCUM_STEPS = 4
 EPOCHS = 10
 LR = 1e-4
 
@@ -36,7 +40,14 @@ def load_yolo_dataset(image_dir, label_dir):
         if os.path.exists(label_path):
             with open(label_path) as f:
                 for line in f:
-                    class_id, xc, yc, w, h = map(float, line.split())
+                    parts = line.split()
+                    if len(parts) != 5:
+                        continue
+                    class_id, xc, yc, w, h = map(float, parts)
+                    if not all(math.isfinite(v) for v in (xc, yc, w, h)):
+                        continue
+                    if w <= 0 or h <= 0:
+                        continue
 
                     x_min = (xc - w / 2) * W
                     y_min = (yc - h / 2) * H
@@ -57,7 +68,7 @@ def load_yolo_dataset(image_dir, label_dir):
                     # )
 
                     boxes.append([x_min, y_min, box_w, box_h])
-                    categories.append(1)  # single class → ID = 1
+                    categories.append(0)  # single class -> ID = 0
 
         data.append({"image_path": img_path, "objects": {"bbox": boxes, "category": categories}})
 
@@ -81,10 +92,12 @@ def transform(examples):
             if w <= 0 or h <= 0:
                 continue
             img_width, img_height = images[i].size
-            x = max(0, x)
-            y = max(0, y)
-            w = min(w, img_width - x)
-            h = min(h, img_height - y)
+            x = min(max(0.0, float(x)), float(img_width))
+            y = min(max(0.0, float(y)), float(img_height))
+            w = min(float(w), float(img_width) - x)
+            h = min(float(h), float(img_height) - y)
+            if w <= 1e-6 or h <= 1e-6:
+                continue
 
             single_img_annotations.append(
                 {
@@ -95,10 +108,7 @@ def transform(examples):
                 }
             )
 
-        ann = {
-            "image_id": 0,
-            "annotations": single_img_annotations,
-        }
+        ann = {"image_id": i, "annotations": single_img_annotations}
         annotations.append(ann)
 
     encoding = processor(images=images, annotations=annotations, return_tensors="pt")
@@ -117,12 +127,28 @@ def detr_collate_fn(batch):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Train DETR on YOLO-format license plate data.")
+    parser.add_argument("--batch-size", type=int, default=BATCH_SIZE)
+    parser.add_argument("--grad-accum-steps", type=int, default=GRAD_ACCUM_STEPS)
+    parser.add_argument("--epochs", type=int, default=EPOCHS)
+    parser.add_argument("--lr", type=float, default=LR)
+    parser.add_argument("--output-dir", type=str, default=OUTPUT_DIR)
+    parser.add_argument("--rebuild-dataset", action="store_true", help="Rebuild hf_yolo_detr_dataset from YOLO labels.")
+    parser.add_argument("--fp16", action="store_true", help="Enable mixed precision (can be unstable for DETR on small GPUs).")
+    args = parser.parse_args()
+
+    if torch.cuda.is_available():
+        # Helps reduce fragmentation-related OOMs on long runs.
+        os.environ.setdefault("PYTORCH_ALLOC_CONF", "expandable_segments:True")
+
     try:
+        if args.rebuild_dataset:
+            raise FileNotFoundError("Forced dataset rebuild")
         dataset = load_from_disk("hf_yolo_detr_dataset")
-        print("Loaded dataset from disc")
+        print("Loaded dataset from disk")
     except Exception as e:
         print(e)
-        print("Failed to load dataset from disc, creating dataset from Yolo labels")
+        print("Failed to load dataset from disk, creating dataset from YOLO labels")
         dataset = load_yolo_dataset(IMAGE_DIR, LABEL_DIR)
 
     dataset = dataset.with_transform(transform)
@@ -132,16 +158,17 @@ if __name__ == "__main__":
         ignore_mismatched_sizes=True,
     )
     training_args = TrainingArguments(
-        output_dir=OUTPUT_DIR,
-        per_device_train_batch_size=BATCH_SIZE,
-        num_train_epochs=EPOCHS,
-        learning_rate=LR,
+        output_dir=args.output_dir,
+        per_device_train_batch_size=args.batch_size,
+        gradient_accumulation_steps=args.grad_accum_steps,
+        num_train_epochs=args.epochs,
+        learning_rate=args.lr,
         weight_decay=1e-4,
         save_steps=500,
         save_total_limit=2,
         logging_steps=50,
         remove_unused_columns=False,
-        fp16=torch.cuda.is_available(),
+        fp16=args.fp16 and torch.cuda.is_available(),
     )
 
     trainer = Trainer(
@@ -153,5 +180,6 @@ if __name__ == "__main__":
 
     trainer.train()
 
-    model.save_pretrained(OUTPUT_DIR)
-    processor.save_pretrained(OUTPUT_DIR)
+    model.save_pretrained(args.output_dir)
+    processor.save_pretrained(args.output_dir)
+####  odpal to python detection/yolo_to_coco.py --rebuild-dataset --batch-size 1 --grad-accum-steps 2 --fp16
