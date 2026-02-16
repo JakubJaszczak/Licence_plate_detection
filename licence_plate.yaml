@@ -1,0 +1,7 @@
+path: D:\praca_magisterska\project\Licence_plate_detection\datasets\licence_plate
+
+train: images/train
+val: images/val
+
+names:
+  0: license_plate
