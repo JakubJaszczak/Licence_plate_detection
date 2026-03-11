@@ -1,7 +1,7 @@
-import os
-from pathlib import Path
 import argparse
 import math
+import os
+from pathlib import Path
 
 import torch
 from PIL import Image
@@ -9,13 +9,12 @@ from datasets import Dataset, load_from_disk
 from transformers import DetrImageProcessor, DetrForObjectDetection, Trainer, TrainingArguments
 
 PROJECT_ROOT_DIR = Path(__file__).parent.parent
-print(PROJECT_ROOT_DIR)
-IMAGE_DIR = Path("/home/karol/Downloads/large-license-plate-dataset/images/train")
-LABEL_DIR = Path("/home/karol/Downloads/large-license-plate-dataset/labels/train")
+IMAGE_DIR = PROJECT_ROOT_DIR.joinpath("datasets", "licence_plate", "images", "train")
+LABEL_DIR = PROJECT_ROOT_DIR.joinpath("datasets", "licence_plate", "labels", "train")
 MODEL_NAME = "facebook/detr-resnet-50"
 NUM_CLASSES = 1
 OUTPUT_DIR = "./detr_yolo"
-BATCH_SIZE = 1
+BATCH_SIZE = 2
 GRAD_ACCUM_STEPS = 4
 EPOCHS = 10
 LR = 1e-4
@@ -53,19 +52,6 @@ def load_yolo_dataset(image_dir, label_dir):
                     y_min = (yc - h / 2) * H
                     box_w = w * W
                     box_h = h * H
-
-                    # import numpy as np
-                    # import cv2 as cv
-                    # np_img = np.array(image)
-                    # # RGB → BGR (what OpenCV expects)
-                    # cv_img = cv.cvtColor(np_img, cv.COLOR_RGB2BGR)
-                    # img_with_bbox = cv.rectangle(
-                    #     cv_img,
-                    #     (int(x_min), int(y_min)),
-                    #     (int(x_min + box_w), int(y_min + box_h)),
-                    #     (0, 0, 255),  # red (BGR)
-                    #     2
-                    # )
 
                     boxes.append([x_min, y_min, box_w, box_h])
                     categories.append(0)  # single class -> ID = 0
@@ -134,7 +120,9 @@ if __name__ == "__main__":
     parser.add_argument("--lr", type=float, default=LR)
     parser.add_argument("--output-dir", type=str, default=OUTPUT_DIR)
     parser.add_argument("--rebuild-dataset", action="store_true", help="Rebuild hf_yolo_detr_dataset from YOLO labels.")
-    parser.add_argument("--fp16", action="store_true", help="Enable mixed precision (can be unstable for DETR on small GPUs).")
+    parser.add_argument(
+        "--fp16", action="store_true", help="Enable mixed precision (can be unstable for DETR on small GPUs)."
+    )
     args = parser.parse_args()
 
     if torch.cuda.is_available():
@@ -169,6 +157,7 @@ if __name__ == "__main__":
         logging_steps=50,
         remove_unused_columns=False,
         fp16=args.fp16 and torch.cuda.is_available(),
+        resume_from_checkpoint="./detr_yolo/checkpoint-19500",
     )
 
     trainer = Trainer(
@@ -178,8 +167,7 @@ if __name__ == "__main__":
         data_collator=detr_collate_fn,
     )
 
-    trainer.train()
+    trainer.train(resume_from_checkpoint=True)
 
     model.save_pretrained(args.output_dir)
     processor.save_pretrained(args.output_dir)
-####  odpal to python detection/yolo_to_coco.py --rebuild-dataset --batch-size 1 --grad-accum-steps 2 --fp16
