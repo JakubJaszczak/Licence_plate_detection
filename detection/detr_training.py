@@ -2,26 +2,37 @@ import argparse
 import math
 import os
 from pathlib import Path
+from typing import Literal
 
 import torch
 from PIL import Image
 from datasets import Dataset, load_from_disk
-from transformers import DetrImageProcessor, DetrForObjectDetection, Trainer, TrainingArguments
+from transformers import DetrImageProcessor, DetrForObjectDetection, Trainer, TrainingArguments, EarlyStoppingCallback
 
 PROJECT_ROOT_DIR = Path(__file__).parent.parent
-IMAGE_DIR = PROJECT_ROOT_DIR.joinpath("datasets", "licence_plate", "images", "train")
-LABEL_DIR = PROJECT_ROOT_DIR.joinpath("datasets", "licence_plate", "labels", "train")
+IMAGE_DIR = PROJECT_ROOT_DIR.joinpath(
+    "datasets",
+    "licence_plate",
+    "images",
+)
+LABEL_DIR = PROJECT_ROOT_DIR.joinpath(
+    "datasets",
+    "licence_plate",
+    "labels",
+)
 MODEL_NAME = "facebook/detr-resnet-50"
 NUM_CLASSES = 1
-OUTPUT_DIR = "./detr_yolo"
-BATCH_SIZE = 2
+OUTPUT_DIR = "./detr_v2"
+BATCH_SIZE = 1
 GRAD_ACCUM_STEPS = 4
-EPOCHS = 10
+EPOCHS = 150
 LR = 1e-4
 
 
-def load_yolo_dataset(image_dir, label_dir):
+def load_yolo_dataset(image_root, label_root, mode: Literal["train", "val"]):
     data = []
+    image_dir = image_root.joinpath(mode)
+    label_dir = label_root.joinpath(mode)
 
     for img_name in os.listdir(image_dir):
         if not img_name.lower().endswith((".jpg", ".png")):
@@ -59,7 +70,7 @@ def load_yolo_dataset(image_dir, label_dir):
         data.append({"image_path": img_path, "objects": {"bbox": boxes, "category": categories}})
 
     ds = Dataset.from_list(data)
-    ds.save_to_disk("hf_yolo_detr_dataset")
+    ds.save_to_disk(f"{mode}_dataset")
     return ds
 
 
@@ -132,19 +143,26 @@ if __name__ == "__main__":
     try:
         if args.rebuild_dataset:
             raise FileNotFoundError("Forced dataset rebuild")
-        dataset = load_from_disk("hf_yolo_detr_dataset")
+        dataset = load_from_disk("train_dataset")
+        val_dataset = load_from_disk("val_dataset")
         print("Loaded dataset from disk")
     except Exception as e:
         print(e)
         print("Failed to load dataset from disk, creating dataset from YOLO labels")
-        dataset = load_yolo_dataset(IMAGE_DIR, LABEL_DIR)
+        dataset = load_yolo_dataset(IMAGE_DIR, LABEL_DIR, "train")
+        val_dataset = load_yolo_dataset(IMAGE_DIR, LABEL_DIR, "val")
 
-    dataset = dataset.with_transform(transform)
+    train_dataset = dataset.with_transform(transform)
+    val_dataset = val_dataset.with_transform(transform)
+
     model = DetrForObjectDetection.from_pretrained(
         MODEL_NAME,
         num_labels=NUM_CLASSES,
         ignore_mismatched_sizes=True,
     )
+    for param in model.model.backbone.parameters():
+        param.requires_grad = False
+
     training_args = TrainingArguments(
         output_dir=args.output_dir,
         per_device_train_batch_size=args.batch_size,
@@ -156,18 +174,27 @@ if __name__ == "__main__":
         save_total_limit=2,
         logging_steps=50,
         remove_unused_columns=False,
-        fp16=args.fp16 and torch.cuda.is_available(),
-        resume_from_checkpoint="./detr_yolo/checkpoint-19500",
+        fp16=False,
+        bf16=True,
+        # resume_from_checkpoint=OUTPUT_DIR,
+        # Required additions for early stopping:
+        eval_strategy="epoch",  # or "epoch", must match save_strategy
+        save_strategy="epoch",  # must match evaluation_strategy
+        eval_steps=1,  # evaluate every 500 steps
+        load_best_model_at_end=True,  # required to load the best weights after early stop
+        metric_for_best_model="loss",  # specify the metric to monitor (usually validation loss)
     )
 
     trainer = Trainer(
         model=model,
         args=training_args,
-        train_dataset=dataset,
+        train_dataset=train_dataset,
+        eval_dataset=val_dataset,
         data_collator=detr_collate_fn,
+        callbacks=[EarlyStoppingCallback(early_stopping_patience=10)],  # Add the callback here
     )
 
-    trainer.train(resume_from_checkpoint=True)
+    trainer.train(resume_from_checkpoint=False)
 
     model.save_pretrained(args.output_dir)
     processor.save_pretrained(args.output_dir)

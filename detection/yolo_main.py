@@ -1,15 +1,19 @@
+import re
 from pathlib import Path
 
 from ultralytics import YOLO
 
 PROJECT_ROOT_DIR = Path(__file__).parent.parent
-CONFIDENCE_THRESHOLD = 0.7
-version = 1
+CONFIDENCE_THRESHOLD = 0.5
+version = 2
 
 if __name__ == "__main__":
-    weights_path = PROJECT_ROOT_DIR.joinpath("runs/detect/train4/weights/best.pt")
+    weights_path = Path(
+        r"D:\praca_magisterska\project\Licence_plate_detection\runs\detect\models_training\yolo\260502\weights\best.pt"
+    )
     model = YOLO(weights_path)
-    base_model_name = model.ckpt["train_args"].get("model").split(".")[0]
+    model_path = model.ckpt["train_args"].get("model")
+    base_model_name = re.match(r".*(?P<model_name>yolov\d+[a-z]?)", model_path).group("model_name")
     results = model.predict(
         source=PROJECT_ROOT_DIR.joinpath("datasets", "licence_plate", "images", "test"),
         conf=CONFIDENCE_THRESHOLD,

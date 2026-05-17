@@ -1,0 +1,12 @@
+# Core Deep Learning
+tensorflow==2.15.1
+ultralytics>=8.1.0
+
+# Explainability & Operations
+xplique==1.5.2
+einops>=0.7.0
+
+# Image Processing & Visualization
+matplotlib>=3.7.0
+Pillow>=10.0.0
+numpy<2.0.0

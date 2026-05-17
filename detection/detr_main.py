@@ -9,8 +9,9 @@ from tqdm import tqdm
 from transformers import AutoImageProcessor, AutoModelForObjectDetection
 
 MODEL_NAME = "DETR"
-version = 1
-v_str = f"v_{str(version).zfill(3)}"
+version = 2
+# v_str = f"v_{str(version).zfill(3)}"
+v_str = "my_dataset_detr_v1"
 label_name = "licence_plate"
 
 
@@ -35,7 +36,10 @@ if __name__ == "__main__":
     model = AutoModelForObjectDetection.from_pretrained("./detr_yolo")
     row = "{sem_class} {x1:.6f} {y1:.6f} {x2:.6f} {y2:.6f} {conf:.6f}"
     row_px = "{sem_class} {x1:.2f} {y1:.2f} {x2:.2f} {y2:.2f} {conf:.6f}"
-    for image_path in tqdm(PROJECT_ROOT_DIR.joinpath("datasets", "licence_plate", "images", "test").iterdir()):
+    # for image_path in tqdm(PROJECT_ROOT_DIR.joinpath("datasets", "licence_plate", "images", "test").iterdir()):
+    for image_path in tqdm(
+        Path(r"D:\praca_magisterska\project\Licence_plate_detection\datasets\my_dataset\test").iterdir()
+    ):
         image = Image.open(image_path)
         img_np = np.array(image)
 

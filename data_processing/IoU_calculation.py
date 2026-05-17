@@ -304,22 +304,21 @@ def visualize_from_dataframe(df, images_dir, output_dir):
     print(f"Visualizations saved to {output_dir}")
 
 
-class ModelType(Enum):
+class DetectionModelType(Enum):
     DETR = "DETR"
     YOLO = "YOLOV8S"
 
 
 if __name__ == "__main__":
-    MODEL_TYPE = ModelType.YOLO
+    MODEL_TYPE = DetectionModelType.DETR
+    v = "v_002"
     LABELS_DIR = Path(r"D:\praca_magisterska\project\Licence_plate_detection\datasets\licence_plate\labels\test")
-    PREDS_DIR = Path(
-        rf"D:\praca_magisterska\project\Licence_plate_detection\detection\results\{MODEL_TYPE.value}\v_001"
-    )
+    PREDS_DIR = Path(rf"D:\praca_magisterska\project\Licence_plate_detection\detection\results\{MODEL_TYPE.value}\{v}")
     IMAGES_DIR = Path(r"D:\praca_magisterska\project\Licence_plate_detection\datasets\licence_plate\images\test")
     VISUALS_OUTPUT_DIR = Path(
-        rf"D:\praca_magisterska\project\Licence_plate_detection\data_processing/visualization_{MODEL_TYPE.value.lower()}"
+        rf"D:\praca_magisterska\project\Licence_plate_detection\data_processing/visualization_{MODEL_TYPE.value.lower()}_{v}"
     )
-    OUTPUT_EXCEL_FILE = f"{MODEL_TYPE.value.lower()}_iou_analysis_results.xlsx"
+    OUTPUT_EXCEL_FILE = f"{MODEL_TYPE.value.lower()}_{v}_iou_analysis_results.xlsx"
     IOU_THRESHOLD = 0.5
 
     df = process_dataset(LABELS_DIR, PREDS_DIR, IOU_THRESHOLD)
