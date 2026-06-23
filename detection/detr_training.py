@@ -22,7 +22,7 @@ LABEL_DIR = PROJECT_ROOT_DIR.joinpath(
 )
 MODEL_NAME = "facebook/detr-resnet-50"
 NUM_CLASSES = 1
-OUTPUT_DIR = "./detr_v2"
+OUTPUT_DIR = "./detr_v3"
 BATCH_SIZE = 1
 GRAD_ACCUM_STEPS = 4
 EPOCHS = 150
@@ -160,29 +160,29 @@ if __name__ == "__main__":
         num_labels=NUM_CLASSES,
         ignore_mismatched_sizes=True,
     )
+
     for param in model.model.backbone.parameters():
         param.requires_grad = False
+
+    trainable_params = [p for p in model.parameters() if p.requires_grad]
+    optimizer = torch.optim.AdamW(trainable_params, lr=1e-4, weight_decay=1e-4)
 
     training_args = TrainingArguments(
         output_dir=args.output_dir,
         per_device_train_batch_size=args.batch_size,
         gradient_accumulation_steps=args.grad_accum_steps,
         num_train_epochs=args.epochs,
-        learning_rate=args.lr,
         weight_decay=1e-4,
-        save_steps=500,
         save_total_limit=2,
         logging_steps=50,
         remove_unused_columns=False,
         fp16=False,
         bf16=True,
-        # resume_from_checkpoint=OUTPUT_DIR,
-        # Required additions for early stopping:
-        eval_strategy="epoch",  # or "epoch", must match save_strategy
-        save_strategy="epoch",  # must match evaluation_strategy
-        eval_steps=1,  # evaluate every 500 steps
-        load_best_model_at_end=True,  # required to load the best weights after early stop
-        metric_for_best_model="loss",  # specify the metric to monitor (usually validation loss)
+        eval_strategy="epoch",
+        save_strategy="epoch",
+        load_best_model_at_end=True,
+        metric_for_best_model="eval_loss",
+        greater_is_better=False,
     )
 
     trainer = Trainer(
@@ -191,9 +191,9 @@ if __name__ == "__main__":
         train_dataset=train_dataset,
         eval_dataset=val_dataset,
         data_collator=detr_collate_fn,
-        callbacks=[EarlyStoppingCallback(early_stopping_patience=10)],  # Add the callback here
+        optimizers=(optimizer, None),
+        callbacks=[EarlyStoppingCallback(early_stopping_patience=5)],
     )
-
     trainer.train(resume_from_checkpoint=False)
 
     model.save_pretrained(args.output_dir)

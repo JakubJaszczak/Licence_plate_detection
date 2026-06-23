@@ -80,19 +80,12 @@ if __name__ == "__main__":
     print("Loading PyTorch model...")
     model_wrapper = YOLOWrapper(MODEL_PATH).to(device)
 
-    # Target all three scales (Small, Medium, Large)
     m = model_wrapper.model.model
     target_layers = [m[15], m[18], m[21]]
 
-    # Use GradCAMPlusPlus: It is mathematically designed to handle multiple target
-    # layers and multiple objects much better than the base GradCAM.
     from pytorch_grad_cam import GradCAMPlusPlus
 
     cam = GradCAMPlusPlus(model=model_wrapper, target_layers=target_layers)
-
-    # ==========================================
-    # 3. BATCH PROCESSING
-    # ==========================================
 
     image_paths = glob.glob(os.path.join(IMG_DIR, "*.jpg"))
     print(f"Found {len(image_paths)} images.")
@@ -103,19 +96,14 @@ if __name__ == "__main__":
         if not os.path.exists(label_path):
             continue
 
-        # Load image using OpenCV for standard processing
         raw_img = cv2.imread(img_path)
         orig_h, orig_w = raw_img.shape[:2]
 
-        # Resize to 640x640 and normalize to [0, 1] for Grad-CAM overlay
         img_resized = cv2.resize(raw_img, MODEL_INPUT_SIZE)
         rgb_img = cv2.cvtColor(img_resized, cv2.COLOR_BGR2RGB) / 255.0
-
-        # Create PyTorch tensor [Batch, Channels, Height, Width]
         input_tensor = torch.tensor(rgb_img, dtype=torch.float32).permute(2, 0, 1).unsqueeze(0).to(device)
         input_tensor.requires_grad_(True)
 
-        # Parse the YOLO .txt file
         with open(label_path, "r") as f:
             lines = f.readlines()
 
@@ -125,14 +113,10 @@ if __name__ == "__main__":
                 continue
             cls, xc, yc, w, h, conf = [float(x) for x in parts]
 
-            # 1. THE LOGICAL FILTER
-            # If the model had less than 20% confidence, the gradient will be almost 0.
-            # Skip generating an empty map for boxes the model essentially ignored.
             if conf < 0.20:
                 print(f"Skipping Object {i} - Confidence too low ({conf:.4f})")
                 continue
 
-            # Calculate coordinates normalized to the 640x640 tensor
             xmin = (xc - w / 2) * MODEL_INPUT_SIZE[0]
             ymin = (yc - h / 2) * MODEL_INPUT_SIZE[1]
             xmax = (xc + w / 2) * MODEL_INPUT_SIZE[0]
@@ -140,34 +124,25 @@ if __name__ == "__main__":
 
             target_box_xyxy = [xmin, ymin, xmax, ymax]
 
-            # 1. Define the specific target
             targets = [YOLOBoxTarget(target_box_xyxy, class_idx=0)]
 
-            # 2. Generate the heatmap (returns a 2D numpy array [640, 640])
-            grayscale_cam = cam(input_tensor=input_tensor, targets=targets, eigen_smooth=True)[
-                0, :
-            ]  # 3. DIAGNOSTIC PRINT: Check if the heatmap is truly empty
+            grayscale_cam = cam(input_tensor=input_tensor, targets=targets, eigen_smooth=True)[0, :]
             cam_max = grayscale_cam.max()
             print(f"    -> CAM Strength for Object {i}: {cam_max:.6f}")
 
             if cam_max < 1e-7:
                 print("       [Warning] Heatmap is mathematically empty. Check layer indices.")
 
-            # 3. Create the visual overlay
             if grayscale_cam.max() > 0:
                 grayscale_cam = grayscale_cam / grayscale_cam.max()
 
-                # 4. VISUALIZATION
             visualization = show_cam_on_image(rgb_img, grayscale_cam, use_rgb=True)
 
-            # 4. Draw the bounding box for clarity
             cv2.rectangle(visualization, (int(xmin), int(ymin)), (int(xmax), int(ymax)), (255, 255, 255), 2)
 
-            # Convert back to BGR for OpenCV saving and resize back to original image size
             visualization_bgr = cv2.cvtColor(visualization, cv2.COLOR_RGB2BGR)
             final_output = cv2.resize(visualization_bgr, (orig_w, orig_h))
 
-            # Save
             base_name = os.path.basename(img_path).replace(".jpg", "")
             save_path = os.path.join(SAVE_DIR, f"{base_name}_obj{i}.jpg")
             cv2.imwrite(save_path, final_output)

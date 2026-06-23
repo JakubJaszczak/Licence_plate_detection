@@ -1,6 +1,7 @@
 import os
 from enum import Enum
 from pathlib import Path
+from typing import TypeAlias
 
 import cv2
 import numpy as np
@@ -17,7 +18,26 @@ def yolo_to_corners(x_c, y_c, w, h):
     return [x_min, y_min, x_max, y_max]
 
 
-def calculate_iou(box1, box2):
+BoundingBox: TypeAlias = tuple[float, float, float, float]
+
+
+def calculate_iou(box1: BoundingBox, box2: BoundingBox) -> float:
+    """Calculates the Intersection over Union (IoU) of two bounding boxes.
+
+    The bounding boxes must be provided in the format (x_min, y_min, x_max, y_max),
+    where (x_min, y_min) represents the top-left corner and (x_max, y_max)
+    represents the bottom-right corner.
+
+    Args:
+        box1: A tuple containing 4 float elements (x_min, y_min, x_max, y_max)
+            representing the first bounding box.
+        box2: A tuple containing 4 float elements (x_min, y_min, x_max, y_max)
+            representing the second bounding box.
+
+    Returns:
+        The IoU value as a float, ranging from 0.0 (no overlap) to 1.0
+        (perfect overlap).
+    """
     x_left = max(box1[0], box2[0])
     y_top = max(box1[1], box2[1])
     x_right = min(box1[2], box2[2])
@@ -30,7 +50,7 @@ def calculate_iou(box1, box2):
     box1_area = (box1[2] - box1[0]) * (box1[3] - box1[1])
     box2_area = (box2[2] - box2[0]) * (box2[3] - box2[1])
 
-    iou = intersection_area / float(box1_area + box2_area - intersection_area)
+    iou = intersection_area / (box1_area + box2_area - intersection_area)
     return iou
 
 

@@ -61,7 +61,6 @@ def visualize():
     axes = [ax_img, ax_gt, ax_p1, ax_p2, ax_p3, ax_p4]
 
     def draw_current_view():
-        # Clear all subplots
         for ax in axes:
             ax.clear()
             ax.axis("off")
@@ -72,7 +71,6 @@ def visualize():
         key = all_keys[current_idx]
         fig.suptitle(f"Image Key: {key} ({current_idx + 1}/{len(all_keys)})", fontsize=16)
 
-        # Draw Image
         img_path = image_folder.joinpath(f"{key}.jpg")
         if os.path.exists(img_path):
             img = Image.open(img_path)
@@ -96,7 +94,6 @@ def visualize():
                 bbox=dict(facecolor="whitesmoke", alpha=0.8, edgecolor="none"),
             )
 
-        # Draw all JSON texts
         draw_text(ax_gt, "Ground Truth", gt_data)
         draw_text(ax_p1, "Paddle labels", paddle_labels)
         draw_text(ax_p2, "Paddle Yolo", paddle_yolo)
@@ -129,6 +126,34 @@ def visualize():
     plt.show()
 
 
+def calculate_cer():
+    import re
+
+    with Path("ocr_errors.json").open() as f:
+        errors_data = json.load(f)
+
+    def cer_per_result_type(result_type):
+        sum_n = 0
+        sum_errors = 0
+        for img_key, ocr_gt in ground_truth.items():
+            clean_ocr = re.sub(r"[^a-zA-Z0-9]", "", ocr_gt)
+            n = len(clean_ocr)  # Number of characters
+            errors = errors_data[img_key][result_type]
+            if errors == -1:
+                continue
+            sum_n += n
+            sum_errors += errors
+        return sum_errors / sum_n
+
+    result = {}
+    for result_type in OcrResultType:
+        result_type_cer = cer_per_result_type(result_type.value)
+        result[result_type.value] = result_type_cer
+
+    with Path("cer_results.json").open("w") as f:
+        json.dump(result, f, indent=4, sort_keys=True)
+
+
 if __name__ == "__main__":
     # root = Path(r"D:\praca_magisterska\project\Licence_plate_detection\datasets\licence_plate\images\test")
     # for img_path in root.iterdir():
@@ -137,3 +162,4 @@ if __name__ == "__main__":
     #     open_and_wait(img_path)
 
     visualize()
+    # calculate_cer()
