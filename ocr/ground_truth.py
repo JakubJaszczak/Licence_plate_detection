@@ -8,7 +8,7 @@ ground_truth = {
     "064a8def3049d040": "5752 FXX",
     "0673b967f8c68eec": "TI 50AP",
     "0727983dd5f9e4e6": "MRSCIFI",
-    "0787b0fa95f545a5": "BJ 03 LB",  # 10
+    "0787b0fa95f545a5": "BJ 03 LB",
     "081f5a6bc61b9c48": "6EVY261",
     "08481c03daf6f35d": "B 87 GLA",
     "09453a7c716a9ef3": "UM 96 201",
@@ -18,7 +18,7 @@ ground_truth = {
     "1071b237587a698b": "N HZ 1002",
     "11b155ab5b3331cf": "CY 110 KS",
     "11f80fda2c38011c": "990 XWK",
-    "128a59bca025bed6": "815 VWV",  # 20
+    "128a59bca025bed6": "815 VWV",
     "12b7ea40074d3b20": "0695 DVH",
     "15a51e29f5ceffd8": "219108",
     "16789af24af158d8": "VNK296 GP",
@@ -28,7 +28,7 @@ ground_truth = {
     "185d5dfa193c4ced": "303 WVD",
     "19eba8ac64eed194": "PIW 4215",
     "19ff847d0cd1c5ec": "V328 FNN",
-    "1ca1155083156d72": "OUTSTDN",  # 30
+    "1ca1155083156d72": "OUTSTDN",
     "1ead26febde18ce9": "ZEN DOG",
     "1eb2ebab9cd7adf6": "SL6I LPU",
     "1edfbe8c28a86caf": "GJ04 ZVM",  # reflections
