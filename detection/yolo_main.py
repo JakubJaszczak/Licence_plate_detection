@@ -4,7 +4,7 @@ from pathlib import Path
 from ultralytics import YOLO
 
 PROJECT_ROOT_DIR = Path(__file__).parent.parent
-CONFIDENCE_THRESHOLD = 0.5
+CONFIDENCE_THRESHOLD = 0.42
 version = 2
 
 if __name__ == "__main__":
@@ -18,7 +18,7 @@ if __name__ == "__main__":
         source=PROJECT_ROOT_DIR.joinpath("datasets", "licence_plate", "images", "test"),
         conf=CONFIDENCE_THRESHOLD,
         project=PROJECT_ROOT_DIR.joinpath("detection", "results", base_model_name.upper()),  # The base directory
-        name=f"v_{str(version).zfill(3)}",  # Sub dir
+        name=f"v_002_conf_042",  # Sub dir
         exist_ok=True,
     )
 

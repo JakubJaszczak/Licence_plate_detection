@@ -22,10 +22,10 @@ LABEL_DIR = PROJECT_ROOT_DIR.joinpath(
 )
 MODEL_NAME = "facebook/detr-resnet-50"
 NUM_CLASSES = 1
-OUTPUT_DIR = "./detr_v3"
+OUTPUT_DIR = "./detr_high_patience"
 BATCH_SIZE = 1
-GRAD_ACCUM_STEPS = 4
-EPOCHS = 150
+GRAD_ACCUM_STEPS = 2
+EPOCHS = 200
 LR = 1e-4
 
 
@@ -100,7 +100,6 @@ def transform(examples):
                 {
                     "bbox": [x, y, w, h],
                     "category_id": category,
-                    "iscrowd": 0,
                     "area": w * h,
                 }
             )
@@ -115,7 +114,7 @@ def transform(examples):
 
 def detr_collate_fn(batch):
     pixel_values = torch.stack([item["pixel_values"] for item in batch])
-    labels = [item["labels"] for item in batch]  # list of dicts
+    labels = [item["labels"] for item in batch]
 
     return {
         "pixel_values": pixel_values,
@@ -192,9 +191,9 @@ if __name__ == "__main__":
         eval_dataset=val_dataset,
         data_collator=detr_collate_fn,
         optimizers=(optimizer, None),
-        callbacks=[EarlyStoppingCallback(early_stopping_patience=5)],
+        callbacks=[EarlyStoppingCallback(early_stopping_patience=10)],
     )
-    trainer.train(resume_from_checkpoint=False)
+    trainer.train(resume_from_checkpoint=True)
 
     model.save_pretrained(args.output_dir)
     processor.save_pretrained(args.output_dir)

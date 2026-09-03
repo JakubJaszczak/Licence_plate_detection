@@ -10,9 +10,9 @@ if __name__ == "__main__":
 
     results = model.train(
         data=PROJECT_ROOT_DIR.joinpath("licence_plate.yaml"),
-        epochs=100,
-        batch=32,
-        name=f"models_training/yolo/{datetime.now().strftime('%y%m%d')}",
-        patience=5,
+        epochs=300,
+        batch=16,
+        name=f"models_training/yolo/{datetime.now().strftime('%y%m%d')}_patience_15",
+        patience=15,
         device="cuda",
     )

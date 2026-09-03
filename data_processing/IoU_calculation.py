@@ -330,15 +330,15 @@ class DetectionModelType(Enum):
 
 
 if __name__ == "__main__":
-    MODEL_TYPE = DetectionModelType.DETR
-    v = "v_002"
+    MODEL_TYPE = DetectionModelType.YOLO
+    v = "v_002_conf_042"
     LABELS_DIR = Path(r"D:\praca_magisterska\project\Licence_plate_detection\datasets\licence_plate\labels\test")
     PREDS_DIR = Path(rf"D:\praca_magisterska\project\Licence_plate_detection\detection\results\{MODEL_TYPE.value}\{v}")
     IMAGES_DIR = Path(r"D:\praca_magisterska\project\Licence_plate_detection\datasets\licence_plate\images\test")
     VISUALS_OUTPUT_DIR = Path(
-        rf"D:\praca_magisterska\project\Licence_plate_detection\data_processing/visualization_{MODEL_TYPE.value.lower()}_{v}"
+        rf"D:\praca_magisterska\project\Licence_plate_detection\data_processing\IoU\visualization\visualization_{MODEL_TYPE.value.lower()}_{v}"
     )
-    OUTPUT_EXCEL_FILE = f"{MODEL_TYPE.value.lower()}_{v}_iou_analysis_results.xlsx"
+    OUTPUT_EXCEL_FILE = f"./Iou/metrics/{MODEL_TYPE.value.lower()}_{v}_iou_analysis_results.xlsx"
     IOU_THRESHOLD = 0.5
 
     df = process_dataset(LABELS_DIR, PREDS_DIR, IOU_THRESHOLD)
